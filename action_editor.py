@@ -2,9 +2,13 @@
 Editor für einzelne Aktionen im Workflow.
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                           QLabel, QSpinBox, QDoubleSpinBox, QLineEdit, 
-                           QComboBox, QPushButton, QDialog, QDialogButtonBox)
+import threading
+import time
+import pyautogui
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+                           QLabel, QSpinBox, QDoubleSpinBox, QLineEdit,
+                           QComboBox, QPushButton, QDialog, QDialogButtonBox,
+                           QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from models import Action, ActionType
@@ -21,25 +25,25 @@ class ActionParameterChangeEvent:
 
 class ActionEditor(QWidget):
     """Editor-Widget für eine einzelne Aktion"""
-    
+
     # Signale
     parameter_changed = pyqtSignal(ActionParameterChangeEvent)
     type_changed = pyqtSignal(ActionType)
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.action = None
         self.edit_mode = False
         self.parameter_widgets = {}
-        
+
         self.main_layout = QVBoxLayout(self)
         self.form_layout = QGridLayout()
-        
+
         # Platzhaltertext, wenn keine Aktion ausgewählt ist
         self.placeholder = QLabel("Wähle eine Aktion aus, um Details anzuzeigen")
         self.main_layout.addWidget(self.placeholder)
-        
+
         # Anfangs kein Action-Editor anzeigen
         self.clear_editor()
 
@@ -136,6 +140,14 @@ class ActionEditor(QWidget):
             self.parameter_widgets["y"] = y_spinbox
             row += 1
 
+            # Test-Button für Mausposition
+            test_position_btn = QPushButton("Position testen")
+            test_position_btn.clicked.connect(
+                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value())
+            )
+            self.form_layout.addWidget(test_position_btn, row, 0, 1, 2)
+            row += 1
+
             # Maustaste (nur für Klick-Aktionen)
             if action.action_type != ActionType.MOUSE_MOVE:
                 self.form_layout.addWidget(QLabel("Taste:"), row, 0)
@@ -176,6 +188,14 @@ class ActionEditor(QWidget):
             self.parameter_widgets["start_y"] = start_y_spinbox
             row += 1
 
+            # Test-Button für Start-Position
+            test_start_btn = QPushButton("Start-Position testen")
+            test_start_btn.clicked.connect(
+                lambda: self._test_mouse_position(start_x_spinbox.value(), start_y_spinbox.value())
+            )
+            self.form_layout.addWidget(test_start_btn, row, 0, 1, 2)
+            row += 1
+
             # End X-Koordinate
             self.form_layout.addWidget(QLabel("End X:"), row, 0)
             end_x_spinbox = QSpinBox()
@@ -192,6 +212,14 @@ class ActionEditor(QWidget):
             end_y_spinbox.setValue(action.params.get("end_y", 0))
             self.form_layout.addWidget(end_y_spinbox, row, 1)
             self.parameter_widgets["end_y"] = end_y_spinbox
+            row += 1
+
+            # Test-Button für End-Position
+            test_end_btn = QPushButton("End-Position testen")
+            test_end_btn.clicked.connect(
+                lambda: self._test_mouse_position(end_x_spinbox.value(), end_y_spinbox.value())
+            )
+            self.form_layout.addWidget(test_end_btn, row, 0, 1, 2)
             row += 1
 
             # Maustaste
@@ -261,6 +289,14 @@ class ActionEditor(QWidget):
             self.parameter_widgets["y"] = y_spinbox
             row += 1
 
+            # Test-Button für Mausposition
+            test_position_btn = QPushButton("Position testen")
+            test_position_btn.clicked.connect(
+                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value())
+            )
+            self.form_layout.addWidget(test_position_btn, row, 0, 1, 2)
+            row += 1
+
             # Farbe
             self.form_layout.addWidget(QLabel("Farbe (R,G,B):"), row, 0)
             color = action.params.get("color", [255, 0, 0])
@@ -307,6 +343,13 @@ class ActionEditor(QWidget):
 
             self.parameter_widgets["region"] = region_edit
             row += 1
+
+            # Test-Button für obere linke Ecke der Region
+            if len(region) >= 2:
+                test_region_btn = QPushButton("Region-Position testen")
+                test_region_btn.clicked.connect(lambda: self._test_mouse_position(region[0], region[1]))
+                self.form_layout.addWidget(test_region_btn, row, 0, 1, 2)
+                row += 1
 
             # Text
             self.form_layout.addWidget(QLabel("Text:"), row, 0)
@@ -396,6 +439,34 @@ class ActionEditor(QWidget):
                     self.parameter_changed.emit(
                         ActionParameterChangeEvent(param_name, old_value, new_value)
                     )
+
+    def _test_mouse_position(self, x: int, y: int):
+        """
+        Bewegt die Maus zur angegebenen Position, um sie zu testen
+
+        Args:
+            x: X-Koordinate
+            y: Y-Koordinate
+        """
+        # Aktuelle Mausposition speichern
+        original_pos = pyautogui.position()
+
+        try:
+            # Maus zur gewünschten Position bewegen
+            pyautogui.moveTo(x, y, duration=0.2)
+
+            # Funktion, um die Maus nach einer Verzögerung zurückzubewegen
+            def move_back():
+                time.sleep(1.5)  # 1,5 Sekunden warten
+                pyautogui.moveTo(original_pos[0], original_pos[1], duration=0.2)
+
+            # Thread starten, um die Maus zurückzubewegen
+            thread = threading.Thread(target=move_back)
+            thread.daemon = True  # Thread als Daemon markieren, damit er das Programm nicht blockiert
+            thread.start()
+
+        except Exception as e:
+            QMessageBox.warning(self, "Positionstest fehlgeschlagen", f"Fehler beim Testen der Position: {str(e)}")
 
     def _pick_color(self, color_edit: QLineEdit):
         """
