@@ -250,6 +250,14 @@ class ActionEditor(QWidget):
             self.parameter_widgets["key"] = key_edit
             row += 1
 
+        elif action.action_type == ActionType.KEY_COMBO:
+            # Tasten (als kommaseparierte Liste)
+            self.form_layout.addWidget(QLabel("Tasten (mit Komma getrennt):"), row, 0)
+            keys_edit = QLineEdit(",".join(action.params.get("keys", ["ctrl", "c"])))
+            self.form_layout.addWidget(keys_edit, row, 1)
+            self.parameter_widgets["keys"] = keys_edit
+            row += 1
+
         elif action.action_type == ActionType.TEXT_WRITE:
             # Text
             self.form_layout.addWidget(QLabel("Text:"), row, 0)
@@ -267,14 +275,6 @@ class ActionEditor(QWidget):
             interval_spinbox.setValue(action.params.get("interval", 0))
             self.form_layout.addWidget(interval_spinbox, row, 1)
             self.parameter_widgets["interval"] = interval_spinbox
-            row += 1
-
-        elif action.action_type == ActionType.KEY_COMBO:
-            # Tasten (als kommaseparierte Liste)
-            self.form_layout.addWidget(QLabel("Tasten (mit Komma getrennt):"), row, 0)
-            keys_edit = QLineEdit(",".join(action.params.get("keys", ["ctrl", "c"])))
-            self.form_layout.addWidget(keys_edit, row, 1)
-            self.parameter_widgets["keys"] = keys_edit
             row += 1
 
         elif action.action_type == ActionType.WAIT:

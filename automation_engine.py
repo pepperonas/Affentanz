@@ -3,14 +3,13 @@ Hauptlogik für die Automatisierung von Benutzerinteraktionen.
 Enthält die AutomationEngine Klasse, die die Ausführung von Workflows handhabt.
 """
 
-import json
 import time
-from typing import List, Dict, Any, Optional, Tuple, Callable
-
+import json
 import pyautogui
 import pytesseract
-from PIL import ImageGrab
+from PIL import Image, ImageGrab
 from PyQt6.QtWidgets import QApplication
+from typing import List, Dict, Any, Optional, Tuple, Callable
 
 from models import Action, ActionType
 
@@ -23,6 +22,9 @@ class AutomationEngine:
         self.workflow: List[Action] = []
         self.is_recording = False
         self.is_playing = False
+        self.loop_enabled = False       # Neues Attribut für Dauerhafte Ausführung
+        self.loop_pause = 1.0          # Pause zwischen Wiederholungen in Sekunden
+        self.abort_key = "esc"         # Taste zum Abbrechen der Dauerausführung
         self.screen_info = self._get_screen_info()
 
     def _get_screen_info(self) -> Dict[str, Any]:
@@ -114,18 +116,45 @@ class AutomationEngine:
         self.is_playing = True
 
         try:
-            for i, action in enumerate(self.workflow):
-                if not self.is_playing:
+            # Ausführungsschleife
+            while self.is_playing:
+                for i, action in enumerate(self.workflow):
+                    if not self.is_playing:
+                        break
+
+                    self._execute_action(action)
+
+                    if callback:
+                        callback(i)
+
+                    # Prüfen ob Abbruchtaste gedrückt wurde
+                    if self._check_abort_key():
+                        self.is_playing = False
+                        break
+
+                # Wenn Loop nicht aktiviert ist oder abgebrochen wurde, beenden
+                if not self.loop_enabled or not self.is_playing:
                     break
 
-                self._execute_action(action)
+                # Pause zwischen den Durchläufen
+                if self.loop_pause > 0:
+                    time.sleep(self.loop_pause)
 
-                if callback:
-                    callback(i)
+                    # Während der Pause noch einmal prüfen, ob abgebrochen wurde
+                    if self._check_abort_key():
+                        self.is_playing = False
+                        break
         except Exception as e:
             print(f"Fehler bei Workflow-Ausführung: {e}")
         finally:
             self.is_playing = False
+
+    def _check_abort_key(self) -> bool:
+        """Prüft, ob die Abbruchtaste gedrückt wurde"""
+        try:
+            return pyautogui.isKeyDown(self.abort_key)
+        except:
+            return False
 
     def stop_playback(self):
         """Stoppt die Ausführung des Workflows"""
@@ -136,21 +165,21 @@ class AutomationEngine:
         try:
             if action.action_type == ActionType.MOUSE_MOVE:
                 pyautogui.moveTo(action.params["x"], action.params["y"],
-                                 duration=action.params.get("duration", 0.1))
+                              duration=action.params.get("duration", 0.1))
 
             elif action.action_type == ActionType.MOUSE_CLICK:
                 pyautogui.click(action.params["x"], action.params["y"],
-                                button=action.params.get("button", "left"),
-                                duration=action.params.get("duration", 0.1))
+                             button=action.params.get("button", "left"),
+                             duration=action.params.get("duration", 0.1))
 
             elif action.action_type == ActionType.MOUSE_DOUBLE_CLICK:
                 pyautogui.doubleClick(action.params["x"], action.params["y"],
-                                      button=action.params.get("button", "left"),
-                                      duration=action.params.get("duration", 0.1))
+                                   button=action.params.get("button", "left"),
+                                   duration=action.params.get("duration", 0.1))
 
             elif action.action_type == ActionType.MOUSE_RIGHT_CLICK:
                 pyautogui.rightClick(action.params["x"], action.params["y"],
-                                     duration=action.params.get("duration", 0.1))
+                                  duration=action.params.get("duration", 0.1))
 
             elif action.action_type == ActionType.MOUSE_DRAG:
                 # Erst zur Startposition bewegen, dann ziehen
@@ -160,9 +189,9 @@ class AutomationEngine:
 
                 # Jetzt zur Endposition ziehen
                 pyautogui.dragTo(action.params["end_x"], action.params["end_y"],
-                                 button=action.params.get("button", "left"),
-                                 duration=action.params.get("duration", 0.5),
-                                 mouseDownUp=True)
+                              button=action.params.get("button", "left"),
+                              duration=action.params.get("duration", 0.5),
+                              mouseDownUp=True)
 
             elif action.action_type == ActionType.KEY_PRESS:
                 pyautogui.press(action.params["key"])
@@ -201,7 +230,7 @@ class AutomationEngine:
             raise
 
     def _wait_for_color(self, x: int, y: int, target_color: List[int],
-                        tolerance: int = 10, timeout: int = 10) -> bool:
+                      tolerance: int = 10, timeout: int = 10) -> bool:
         """
         Wartet, bis der Pixel an Position (x,y) eine bestimmte Farbe hat
 
@@ -211,14 +240,14 @@ class AutomationEngine:
         start_time = time.time()
         while time.time() - start_time < timeout:
             try:
-                img = ImageGrab.grab(bbox=(x, y, x + 1, y + 1))
+                img = ImageGrab.grab(bbox=(x, y, x+1, y+1))
                 pixel_color = img.getpixel((0, 0))
 
                 # Stelle sicher, dass wir mit RGB-Werten vergleichen
                 if len(pixel_color) > 3:  # RGBA Format
                     pixel_color = pixel_color[0:3]  # Ignoriere Alpha-Kanal
 
-                if all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color)):
+                if all(abs(a-b) <= tolerance for a, b in zip(pixel_color, target_color)):
                     return True
             except Exception as e:
                 print(f"Fehler bei Farbprüfung: {e}")
@@ -247,8 +276,8 @@ class AutomationEngine:
             try:
                 # Region: [x, y, width, height]
                 img = ImageGrab.grab(bbox=(region[0], region[1],
-                                           region[0] + region[2],
-                                           region[1] + region[3]))
+                                         region[0]+region[2],
+                                         region[1]+region[3]))
 
                 recognized_text = pytesseract.image_to_string(img)
 
@@ -268,7 +297,7 @@ class AutomationEngine:
         Returns:
             Tuple[int, int, int]: RGB-Werte des Pixels
         """
-        img = ImageGrab.grab(bbox=(x, y, x + 1, y + 1))
+        img = ImageGrab.grab(bbox=(x, y, x+1, y+1))
         color = img.getpixel((0, 0))
 
         # Stelle sicher, dass wir RGB zurückgeben
@@ -277,7 +306,7 @@ class AutomationEngine:
         return color
 
     def find_color_on_screen(self, target_color: List[int],
-                             tolerance: int = 10) -> Optional[Tuple[int, int]]:
+                           tolerance: int = 10) -> Optional[Tuple[int, int]]:
         """
         Sucht nach dem ersten Vorkommen einer Farbe auf dem Bildschirm
 
@@ -300,7 +329,7 @@ class AutomationEngine:
                     if len(pixel_color) > 3:  # RGBA Format
                         pixel_color = pixel_color[0:3]  # Ignoriere Alpha-Kanal
 
-                    if all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color)):
+                    if all(abs(a-b) <= tolerance for a, b in zip(pixel_color, target_color)):
                         # Fine-tuning: Jetzt genau den Pixel finden
                         for dx in range(-5, 6):
                             for dy in range(-5, 6):
@@ -309,7 +338,7 @@ class AutomationEngine:
                                     pixel_color = screen.getpixel((nx, ny))
                                     if len(pixel_color) > 3:
                                         pixel_color = pixel_color[0:3]
-                                    if all(abs(a - b) <= tolerance for a, b in zip(pixel_color, target_color)):
+                                    if all(abs(a-b) <= tolerance for a, b in zip(pixel_color, target_color)):
                                         return (nx, ny)
         except Exception as e:
             print(f"Fehler bei Farbsuche: {e}")
@@ -331,8 +360,8 @@ class AutomationEngine:
 
         # Region: [x, y, width, height]
         img = ImageGrab.grab(bbox=(region[0], region[1],
-                                   region[0] + region[2],
-                                   region[1] + region[3]))
+                                 region[0]+region[2],
+                                 region[1]+region[3]))
         return pytesseract.image_to_string(img)
 
     def find_text_on_screen(self, text: str, min_confidence: float = 0.7) -> Optional[List[int]]:

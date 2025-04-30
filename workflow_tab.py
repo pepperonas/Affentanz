@@ -4,7 +4,8 @@ Workflow-Tab für das Desktop-Automatisierungstool.
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
                             QLabel, QListWidget, QPushButton, QMessageBox,
-                            QSplitter, QRadioButton, QDialog, QFileDialog, QComboBox)
+                            QSplitter, QRadioButton, QDialog, QFileDialog, QComboBox,
+                            QCheckBox, QDoubleSpinBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from PyQt6.QtGui import QKeySequence, QShortcut
 
@@ -94,6 +95,39 @@ class WorkflowTab(QWidget):
         # Hauptlayout
         layout = QVBoxLayout(self)
 
+        # Dauerhafte Ausführungs-Optionen
+        repeat_options_layout = QHBoxLayout()
+
+        # Checkbox für Dauerhaft ausführen
+        self.loop_checkbox = QCheckBox("Dauerhaft ausführen")
+        self.loop_checkbox.setChecked(self.engine.loop_enabled)
+        self.loop_checkbox.toggled.connect(self.on_loop_toggled)
+        repeat_options_layout.addWidget(self.loop_checkbox)
+
+        # Pause zwischen Durchläufen
+        repeat_options_layout.addWidget(QLabel("Pause (s):"))
+        self.loop_pause_spin = QDoubleSpinBox()
+        self.loop_pause_spin.setRange(0, 60)
+        self.loop_pause_spin.setSingleStep(0.5)
+        self.loop_pause_spin.setValue(self.engine.loop_pause)
+        self.loop_pause_spin.valueChanged.connect(self.on_loop_pause_changed)
+        repeat_options_layout.addWidget(self.loop_pause_spin)
+
+        # Abbruchtaste
+        repeat_options_layout.addWidget(QLabel("Abbruchtaste:"))
+        self.abort_key_combo = QComboBox()
+        # Füge gängige Tasten hinzu
+        for key in ["esc", "f12", "tab", "space", "pause"]:
+            self.abort_key_combo.addItem(key)
+        self.abort_key_combo.setCurrentText(self.engine.abort_key)
+        self.abort_key_combo.currentTextChanged.connect(self.on_abort_key_changed)
+        repeat_options_layout.addWidget(self.abort_key_combo)
+
+        repeat_options_layout.addStretch()
+
+        # Layout hinzufügen
+        layout.addLayout(repeat_options_layout)
+
         # Splitter für linke und rechte Seite
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -182,6 +216,19 @@ class WorkflowTab(QWidget):
         # Aktion nach unten verschieben
         move_down_shortcut = QShortcut(QKeySequence(SHORTCUT_MOVE_DOWN), self)
         move_down_shortcut.activated.connect(self.move_action_down)
+
+    # Callback-Methoden für die Dauerhaft-Optionen
+    def on_loop_toggled(self, checked):
+        """Wird aufgerufen, wenn die Dauerhaft-Checkbox umgeschaltet wird"""
+        self.engine.loop_enabled = checked
+
+    def on_loop_pause_changed(self, value):
+        """Wird aufgerufen, wenn die Pausenzeit geändert wird"""
+        self.engine.loop_pause = value
+
+    def on_abort_key_changed(self, key):
+        """Wird aufgerufen, wenn die Abbruchtaste geändert wird"""
+        self.engine.abort_key = key
 
     def refresh_workflow_list(self):
         """Aktualisiert die Workflow-Liste"""

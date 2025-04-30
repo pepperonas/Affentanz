@@ -437,15 +437,19 @@ class MainWindow(QMainWindow):
         self.workflow_thread.error_occurred.connect(self.on_playback_error)
         self.workflow_thread.finished.connect(self.on_playback_finished)
 
+        # Dauerhaft-Modus Statusmeldung
+        if self.engine.loop_enabled:
+            msg = f"Workflow wird dauerhaft ausgeführt (Abbruch mit Taste '{self.engine.abort_key}')..."
+            self.show_status_message(msg)
+        else:
+            self.show_status_message("Workflow wird ausgeführt...")
+
         self.workflow_thread.start()
 
         # UI-Status aktualisieren
         self.play_action.setEnabled(False)
         self.record_action.setEnabled(False)
         self.stop_action.setEnabled(True)
-
-        # Statusmeldung
-        self.show_status_message("Workflow wird ausgeführt...")
 
     def stop_workflow(self):
         """Stoppt die Ausführung des aktuellen Workflows"""
@@ -602,6 +606,24 @@ class MainWindow(QMainWindow):
 
         # Event akzeptieren (Fenster schließen)
         event.accept()
+
+
+def add_recent_workflow(filename, max_entries=10):
+    """Fügt einen Workflow zur Liste der zuletzt verwendeten Workflows hinzu"""
+    settings = load_settings()
+    recent = settings.get("recent_workflows", [])
+
+    # Entferne den Eintrag, falls er bereits vorhanden ist
+    if filename in recent:
+        recent.remove(filename)
+
+    # Füge den Eintrag am Anfang der Liste hinzu
+    recent.insert(0, filename)
+
+    # Begrenze die Anzahl der Einträge
+    settings["recent_workflows"] = recent[:max_entries]
+
+    save_settings(settings)
 
 
 def main():
