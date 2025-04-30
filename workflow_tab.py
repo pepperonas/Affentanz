@@ -252,6 +252,11 @@ class WorkflowTab(QWidget):
             self.workflow_list.setCurrentRow(current_row)
         elif self.workflow_list.count() > 0:
             self.workflow_list.setCurrentRow(0)
+            # Wenn nur eine Aktion vorhanden ist, wird der itemSelectionChanged-Signal manchmal nicht ausgelöst
+            # Daher manuell die Aktionsdetails aktualisieren, wenn es nur eine Aktion gibt
+            if len(self.engine.workflow) == 1:
+                self.current_index = 0
+                self.action_editor.edit_action(self.engine.workflow[0])
 
         # Dauerhaft-Ausführen-Einstellungen aktualisieren
         self.update_loop_settings()
