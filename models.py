@@ -53,9 +53,10 @@ class Action:
         """Gibt Standardparameter für einen Aktionstyp zurück"""
         if action_type in [ActionType.MOUSE_MOVE, ActionType.MOUSE_CLICK,
                            ActionType.MOUSE_DOUBLE_CLICK, ActionType.MOUSE_RIGHT_CLICK]:
-            return {"x": 0, "y": 0, "duration": 0.1}
+            return {"x": 0, "y": 0, "duration": 0.1, "screen_id": 0}
         elif action_type == ActionType.MOUSE_DRAG:
-            return {"start_x": 0, "start_y": 0, "end_x": 100, "end_y": 100, "duration": 0.5}
+            return {"start_x": 0, "start_y": 0, "end_x": 100, "end_y": 100,
+                    "duration": 0.5, "screen_id": 0}
         elif action_type == ActionType.KEY_PRESS:
             return {"key": "enter"}
         elif action_type == ActionType.KEY_COMBO:
@@ -65,9 +66,11 @@ class Action:
         elif action_type == ActionType.WAIT:
             return {"seconds": 1}
         elif action_type == ActionType.WAIT_FOR_COLOR:
-            return {"x": 0, "y": 0, "color": [255, 0, 0], "tolerance": 10, "timeout": 10}
+            return {"x": 0, "y": 0, "color": [255, 0, 0], "tolerance": 10,
+                    "timeout": 10, "screen_id": 0}
         elif action_type == ActionType.WAIT_FOR_TEXT:
-            return {"region": [0, 0, 200, 100], "text": "Beispieltext", "timeout": 10}
+            return {"region": [0, 0, 200, 100], "text": "Beispieltext",
+                    "timeout": 10, "screen_id": 0}
         else:
             return {}
 
@@ -75,14 +78,20 @@ class Action:
         """Gibt eine Beschreibung der Aktion zurück, die in der UI angezeigt werden kann"""
         description = f"{self.action_type.value}"
 
+        # Füge Bildschirm zur Beschreibung hinzu, wenn vorhanden
+        screen_info = ""
+        if "screen_id" in self.params:
+            screen_id = self.params["screen_id"]
+            screen_info = f" (Bildschirm {screen_id})"
+
         if self.action_type == ActionType.MOUSE_MOVE:
-            description += f" ({self.params['x']}, {self.params['y']})"
+            description += f" ({self.params['x']}, {self.params['y']}){screen_info}"
         elif self.action_type in [ActionType.MOUSE_CLICK, ActionType.MOUSE_DOUBLE_CLICK,
                                   ActionType.MOUSE_RIGHT_CLICK]:
-            description += f" ({self.params['x']}, {self.params['y']})"
+            description += f" ({self.params['x']}, {self.params['y']}){screen_info}"
         elif self.action_type == ActionType.MOUSE_DRAG:
             description += f" ({self.params.get('start_x', 0)}, {self.params.get('start_y', 0)}) -> "
-            description += f"({self.params['end_x']}, {self.params['end_y']})"
+            description += f"({self.params['end_x']}, {self.params['end_y']}){screen_info}"
         elif self.action_type == ActionType.KEY_PRESS:
             description += f" {self.params['key']}"
         elif self.action_type == ActionType.KEY_COMBO:
@@ -92,8 +101,8 @@ class Action:
         elif self.action_type == ActionType.WAIT:
             description += f" {self.params['seconds']}s"
         elif self.action_type == ActionType.WAIT_FOR_COLOR:
-            description += f" an ({self.params['x']}, {self.params['y']})"
+            description += f" an ({self.params['x']}, {self.params['y']}){screen_info}"
         elif self.action_type == ActionType.WAIT_FOR_TEXT:
-            description += f" '{self.params['text']}'"
+            description += f" '{self.params['text']}'{screen_info}"
 
         return description

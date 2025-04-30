@@ -8,7 +8,7 @@ import pyautogui
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                            QLabel, QSpinBox, QDoubleSpinBox, QLineEdit,
                            QComboBox, QPushButton, QDialog, QDialogButtonBox,
-                           QMessageBox)
+                           QMessageBox, QApplication)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 
@@ -50,6 +50,7 @@ class ActionEditor(QWidget):
         self.tracking_active = False
         self.tracking_target_widget = None
         self.position_display_label = None
+        self.tracking_screen_combo = None
 
         # Anfangs kein Action-Editor anzeigen
         self.clear_editor()
@@ -126,6 +127,21 @@ class ActionEditor(QWidget):
         self.placeholder = QLabel("Wähle eine Aktion aus, um Details anzuzeigen")
         self.main_layout.addWidget(self.placeholder)
 
+    def get_available_screens(self):
+        """Gibt eine Liste der verfügbaren Bildschirme zurück"""
+        screens = []
+        for i, screen in enumerate(QApplication.screens()):
+            geometry = screen.geometry()
+            screens.append({
+                "id": i,
+                "name": screen.name(),
+                "width": geometry.width(),
+                "height": geometry.height(),
+                "x": geometry.x(),
+                "y": geometry.y()
+            })
+        return screens
+
     def _create_parameter_widgets(self, action: Action):
         """
         Erstellt die Widgets für die Parameter der Aktion
@@ -137,6 +153,18 @@ class ActionEditor(QWidget):
 
         if action.action_type in [ActionType.MOUSE_MOVE, ActionType.MOUSE_CLICK,
                                 ActionType.MOUSE_DOUBLE_CLICK, ActionType.MOUSE_RIGHT_CLICK]:
+            # Bildschirm-Auswahl
+            self.form_layout.addWidget(QLabel("Bildschirm:"), row, 0)
+            screen_combo = QComboBox()
+            for screen in self.get_available_screens():
+                screen_combo.addItem(
+                    f"Bildschirm {screen['id']} ({screen['width']}×{screen['height']})"
+                )
+            screen_combo.setCurrentIndex(action.params.get("screen_id", 0))
+            self.form_layout.addWidget(screen_combo, row, 1)
+            self.parameter_widgets["screen_id"] = screen_combo
+            row += 1
+
             # X-Koordinate
             self.form_layout.addWidget(QLabel("X:"), row, 0)
             x_spinbox = QSpinBox()
@@ -163,7 +191,7 @@ class ActionEditor(QWidget):
             # Position loggen Button
             track_position_btn = QPushButton("Mausposition loggen (Enter = übernehmen)")
             track_position_btn.clicked.connect(
-                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox)
+                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox, screen_combo)
             )
             self.form_layout.addWidget(track_position_btn, row, 0, 1, 2)
             row += 1
@@ -171,7 +199,8 @@ class ActionEditor(QWidget):
             # Test-Button für Mausposition
             test_position_btn = QPushButton("Position testen")
             test_position_btn.clicked.connect(
-                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value())
+                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value(),
+                                              screen_combo.currentIndex())
             )
             self.form_layout.addWidget(test_position_btn, row, 0, 1, 2)
             row += 1
@@ -198,6 +227,18 @@ class ActionEditor(QWidget):
             row += 1
 
         elif action.action_type == ActionType.MOUSE_DRAG:
+            # Bildschirm-Auswahl
+            self.form_layout.addWidget(QLabel("Bildschirm:"), row, 0)
+            screen_combo = QComboBox()
+            for screen in self.get_available_screens():
+                screen_combo.addItem(
+                    f"Bildschirm {screen['id']} ({screen['width']}×{screen['height']})"
+                )
+            screen_combo.setCurrentIndex(action.params.get("screen_id", 0))
+            self.form_layout.addWidget(screen_combo, row, 1)
+            self.parameter_widgets["screen_id"] = screen_combo
+            row += 1
+
             # Start X-Koordinate
             self.form_layout.addWidget(QLabel("Start X:"), row, 0)
             start_x_spinbox = QSpinBox()
@@ -224,7 +265,7 @@ class ActionEditor(QWidget):
             # Start-Position loggen Button
             track_start_position_btn = QPushButton("Start-Position loggen (Enter = übernehmen)")
             track_start_position_btn.clicked.connect(
-                lambda: self.toggle_position_tracking(start_x_spinbox, start_y_spinbox)
+                lambda: self.toggle_position_tracking(start_x_spinbox, start_y_spinbox, screen_combo)
             )
             self.form_layout.addWidget(track_start_position_btn, row, 0, 1, 2)
             row += 1
@@ -232,7 +273,8 @@ class ActionEditor(QWidget):
             # Test-Button für Start-Position
             test_start_btn = QPushButton("Start-Position testen")
             test_start_btn.clicked.connect(
-                lambda: self._test_mouse_position(start_x_spinbox.value(), start_y_spinbox.value())
+                lambda: self._test_mouse_position(start_x_spinbox.value(), start_y_spinbox.value(),
+                                              screen_combo.currentIndex())
             )
             self.form_layout.addWidget(test_start_btn, row, 0, 1, 2)
             row += 1
@@ -258,7 +300,7 @@ class ActionEditor(QWidget):
             # End-Position loggen Button
             track_end_position_btn = QPushButton("End-Position loggen (Enter = übernehmen)")
             track_end_position_btn.clicked.connect(
-                lambda: self.toggle_position_tracking(end_x_spinbox, end_y_spinbox)
+                lambda: self.toggle_position_tracking(end_x_spinbox, end_y_spinbox, screen_combo)
             )
             self.form_layout.addWidget(track_end_position_btn, row, 0, 1, 2)
             row += 1
@@ -266,7 +308,8 @@ class ActionEditor(QWidget):
             # Test-Button für End-Position
             test_end_btn = QPushButton("End-Position testen")
             test_end_btn.clicked.connect(
-                lambda: self._test_mouse_position(end_x_spinbox.value(), end_y_spinbox.value())
+                lambda: self._test_mouse_position(end_x_spinbox.value(), end_y_spinbox.value(),
+                                              screen_combo.currentIndex())
             )
             self.form_layout.addWidget(test_end_btn, row, 0, 1, 2)
             row += 1
@@ -339,6 +382,18 @@ class ActionEditor(QWidget):
             row += 1
 
         elif action.action_type == ActionType.WAIT_FOR_COLOR:
+            # Bildschirm-Auswahl
+            self.form_layout.addWidget(QLabel("Bildschirm:"), row, 0)
+            screen_combo = QComboBox()
+            for screen in self.get_available_screens():
+                screen_combo.addItem(
+                    f"Bildschirm {screen['id']} ({screen['width']}×{screen['height']})"
+                )
+            screen_combo.setCurrentIndex(action.params.get("screen_id", 0))
+            self.form_layout.addWidget(screen_combo, row, 1)
+            self.parameter_widgets["screen_id"] = screen_combo
+            row += 1
+
             # X-Koordinate
             self.form_layout.addWidget(QLabel("X:"), row, 0)
             x_spinbox = QSpinBox()
@@ -365,7 +420,7 @@ class ActionEditor(QWidget):
             # Position loggen Button
             track_position_btn = QPushButton("Mausposition loggen (Enter = übernehmen)")
             track_position_btn.clicked.connect(
-                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox)
+                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox, screen_combo)
             )
             self.form_layout.addWidget(track_position_btn, row, 0, 1, 2)
             row += 1
@@ -373,7 +428,8 @@ class ActionEditor(QWidget):
             # Test-Button für Mausposition
             test_position_btn = QPushButton("Position testen")
             test_position_btn.clicked.connect(
-                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value())
+                lambda: self._test_mouse_position(x_spinbox.value(), y_spinbox.value(),
+                                              screen_combo.currentIndex())
             )
             self.form_layout.addWidget(test_position_btn, row, 0, 1, 2)
             row += 1
@@ -411,6 +467,18 @@ class ActionEditor(QWidget):
             row += 1
 
         elif action.action_type == ActionType.WAIT_FOR_TEXT:
+            # Bildschirm-Auswahl
+            self.form_layout.addWidget(QLabel("Bildschirm:"), row, 0)
+            screen_combo = QComboBox()
+            for screen in self.get_available_screens():
+                screen_combo.addItem(
+                    f"Bildschirm {screen['id']} ({screen['width']}×{screen['height']})"
+                )
+            screen_combo.setCurrentIndex(action.params.get("screen_id", 0))
+            self.form_layout.addWidget(screen_combo, row, 1)
+            self.parameter_widgets["screen_id"] = screen_combo
+            row += 1
+
             # Region
             self.form_layout.addWidget(QLabel("Region [x,y,breite,höhe]:"), row, 0)
             region = action.params.get("region", [0, 0, 200, 100])
@@ -419,7 +487,7 @@ class ActionEditor(QWidget):
 
             # Region auswählen-Button
             pick_region_btn = QPushButton("Auswählen")
-            pick_region_btn.clicked.connect(lambda: self._pick_region(region_edit))
+            pick_region_btn.clicked.connect(lambda: self._pick_region(region_edit, screen_combo.currentIndex()))
             self.form_layout.addWidget(pick_region_btn, row, 2)
 
             self.parameter_widgets["region"] = region_edit
@@ -428,7 +496,9 @@ class ActionEditor(QWidget):
             # Test-Button für obere linke Ecke der Region
             if len(region) >= 2:
                 test_region_btn = QPushButton("Region-Position testen")
-                test_region_btn.clicked.connect(lambda: self._test_mouse_position(region[0], region[1]))
+                test_region_btn.clicked.connect(
+                    lambda: self._test_mouse_position(region[0], region[1], screen_combo.currentIndex())
+                )
                 self.form_layout.addWidget(test_region_btn, row, 0, 1, 2)
                 row += 1
 
@@ -493,7 +563,10 @@ class ActionEditor(QWidget):
                 if isinstance(widget, QSpinBox) or isinstance(widget, QDoubleSpinBox):
                     new_value = widget.value()
                 elif isinstance(widget, QComboBox):
-                    new_value = widget.currentText()
+                    if param_name == "screen_id":
+                        new_value = widget.currentIndex()  # Speichere den Index, nicht den Text
+                    else:
+                        new_value = widget.currentText()
                 elif isinstance(widget, QLineEdit):
                     # Spezielle Behandlung für bestimmte Parameter
                     if param_name == "keys":
@@ -521,26 +594,28 @@ class ActionEditor(QWidget):
                         ActionParameterChangeEvent(param_name, old_value, new_value)
                     )
 
-    def toggle_position_tracking(self, x_widget, y_widget):
+    def toggle_position_tracking(self, x_widget, y_widget, screen_combo=None):
         """
         Startet oder stoppt die Verfolgung der Mausposition
 
         Args:
             x_widget: Widget für die X-Koordinate
             y_widget: Widget für die Y-Koordinate
+            screen_combo: ComboBox mit der Bildschirmauswahl
         """
         if self.tracking_active:
             self.stop_position_tracking()
         else:
-            self.start_position_tracking(x_widget, y_widget)
+            self.start_position_tracking(x_widget, y_widget, screen_combo)
 
-    def start_position_tracking(self, x_widget, y_widget):
+    def start_position_tracking(self, x_widget, y_widget, screen_combo=None):
         """
         Startet die Verfolgung der Mausposition
 
         Args:
             x_widget: Widget für die X-Koordinate
             y_widget: Widget für die Y-Koordinate
+            screen_combo: ComboBox mit der Bildschirmauswahl
         """
         # Tracking beenden, falls bereits aktiv
         if self.tracking_active:
@@ -549,6 +624,7 @@ class ActionEditor(QWidget):
         # Tracking-Status setzen
         self.tracking_active = True
         self.tracking_target_widget = (x_widget, y_widget)
+        self.tracking_screen_combo = screen_combo
 
         # Shortcut aktivieren
         if hasattr(self, 'enter_shortcut'):
@@ -590,31 +666,78 @@ class ActionEditor(QWidget):
         if not self.tracking_active or not self.position_display_label:
             return
 
-        # Aktuelle Mausposition abrufen
-        pos = pyautogui.position()
+        # Aktuelle globale Mausposition abrufen
+        global_pos = pyautogui.position()
 
-        # Display aktualisieren
-        self.position_display_label.setText(f"Aktuelle Mausposition: {pos[0]}, {pos[1]}")
+        # Wenn wir einen Bildschirm-Selektor haben, die relativen Koordinaten berechnen
+        screen_id = 0
+        if self.tracking_screen_combo:
+            screen_id = self.tracking_screen_combo.currentIndex()
+
+        # Bildschirminformationen holen
+        screens = self.get_available_screens()
+        if 0 <= screen_id < len(screens):
+            screen = screens[screen_id]
+            # Relative Position zum ausgewählten Bildschirm berechnen
+            rel_x = global_pos[0] - screen["x"]
+            rel_y = global_pos[1] - screen["y"]
+
+            # Display aktualisieren mit relativen Koordinaten
+            self.position_display_label.setText(
+                f"Position auf Bildschirm {screen_id}: {rel_x}, {rel_y}"
+            )
+        else:
+            # Fallback auf absolute Koordinaten
+            self.position_display_label.setText(f"Globale Position: {global_pos[0]}, {global_pos[1]}")
 
     def apply_tracked_position(self):
         """Übernimmt die aktuelle Mausposition in die Zielfelder"""
         if not self.tracking_active or not self.tracking_target_widget:
             return
 
-        # Aktuelle Mausposition abrufen
-        pos = pyautogui.position()
+        # Aktuelle globale Mausposition abrufen
+        global_pos = pyautogui.position()
 
-        # Werte in die Felder eintragen
-        x_widget, y_widget = self.tracking_target_widget
-        x_widget.setValue(pos[0])
-        y_widget.setValue(pos[1])
+        # Bildschirm-ID für die Konvertierung holen
+        screen_id = 0
+        if self.tracking_screen_combo:
+            screen_id = self.tracking_screen_combo.currentIndex()
 
-        # Tracking beenden
-        self.stop_position_tracking()
+        # Bildschirminformationen holen
+        screens = self.get_available_screens()
+        if 0 <= screen_id < len(screens):
+            screen = screens[screen_id]
+            # Relative Position zum ausgewählten Bildschirm berechnen
+            rel_x = global_pos[0] - screen["x"]
+            rel_y = global_pos[1] - screen["y"]
 
-        # Bestätigungsnachricht anzeigen
-        if self.position_display_label:
-            self.position_display_label.setText(f"Position übernommen: {pos[0]}, {pos[1]}")
+            # Werte in die Felder eintragen (relative Koordinaten)
+            x_widget, y_widget = self.tracking_target_widget
+            x_widget.setValue(rel_x)
+            y_widget.setValue(rel_y)
+
+            # Tracking beenden
+            self.stop_position_tracking()
+
+            # Bestätigungsnachricht anzeigen
+            if self.position_display_label:
+                self.position_display_label.setText(
+                    f"Position übernommen: {rel_x}, {rel_y} (Bildschirm {screen_id})"
+                )
+        else:
+            # Fallback auf absolute Koordinaten
+            x_widget, y_widget = self.tracking_target_widget
+            x_widget.setValue(global_pos[0])
+            y_widget.setValue(global_pos[1])
+
+            # Tracking beenden
+            self.stop_position_tracking()
+
+            # Bestätigungsnachricht anzeigen
+            if self.position_display_label:
+                self.position_display_label.setText(
+                    f"Position übernommen: {global_pos[0]}, {global_pos[1]}"
+                )
 
     def keyPressEvent(self, event):
         """Behandelt Tastatureingaben"""
@@ -624,20 +747,30 @@ class ActionEditor(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def _test_mouse_position(self, x: int, y: int):
+    def _test_mouse_position(self, x: int, y: int, screen_id: int = 0):
         """
         Bewegt die Maus zur angegebenen Position, um sie zu testen
 
         Args:
-            x: X-Koordinate
-            y: Y-Koordinate
+            x: X-Koordinate (relativ zum Bildschirm)
+            y: Y-Koordinate (relativ zum Bildschirm)
+            screen_id: ID des Bildschirms
         """
         # Aktuelle Mausposition speichern
         original_pos = pyautogui.position()
 
         try:
+            # Bildschirmoffset für absolute Koordinaten hinzufügen
+            screens = self.get_available_screens()
+            abs_x, abs_y = x, y
+
+            if 0 <= screen_id < len(screens):
+                screen = screens[screen_id]
+                abs_x = screen["x"] + x
+                abs_y = screen["y"] + y
+
             # Maus zur gewünschten Position bewegen
-            pyautogui.moveTo(x, y, duration=0.2)
+            pyautogui.moveTo(abs_x, abs_y, duration=0.2)
 
             # Funktion, um die Maus nach einer Verzögerung zurückzubewegen
             def move_back():
@@ -662,12 +795,13 @@ class ActionEditor(QWidget):
         # Placeholder, tatsächliche Implementierung würde den ColorPicker verwenden
         pass
 
-    def _pick_region(self, region_edit: QLineEdit):
+    def _pick_region(self, region_edit: QLineEdit, screen_id: int = 0):
         """
         Öffnet den Regionswähler und setzt die ausgewählte Region in das Eingabefeld
 
         Args:
             region_edit: Das Eingabefeld für die Region
+            screen_id: ID des Bildschirms
         """
         # Placeholder, tatsächliche Implementierung würde den RegionSelector verwenden
         pass
