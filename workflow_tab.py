@@ -253,6 +253,9 @@ class WorkflowTab(QWidget):
         elif self.workflow_list.count() > 0:
             self.workflow_list.setCurrentRow(0)
 
+        # Dauerhaft-Ausführen-Einstellungen aktualisieren
+        self.update_loop_settings()
+
         self.updating_ui = False
 
         # Button-Status aktualisieren
@@ -502,3 +505,21 @@ class WorkflowTab(QWidget):
     def set_modified(self, modified: bool = True):
         """Setzt den Änderungsstatus des Workflows"""
         self.is_modified = modified
+
+    def update_loop_settings(self):
+        """Aktualisiert die UI-Elemente für die Dauerhaft-Ausführen-Einstellungen"""
+        # UI-Updates blockieren, um Signale zu vermeiden
+        self.updating_ui = True
+
+        # Checkbox-Status aktualisieren
+        self.loop_checkbox.setChecked(self.engine.loop_enabled)
+
+        # Pausenzeit aktualisieren
+        self.loop_pause_spin.setValue(self.engine.loop_pause)
+
+        # Abbruchtaste aktualisieren
+        index = self.abort_key_combo.findText(self.engine.abort_key)
+        if index >= 0:
+            self.abort_key_combo.setCurrentIndex(index)
+
+        self.updating_ui = False

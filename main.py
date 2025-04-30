@@ -270,7 +270,7 @@ class MainWindow(QMainWindow):
             # Workflow laden
             count = self.engine.load_workflow(filename)
 
-            # UI aktualisieren
+            # UI aktualisieren (refresh_workflow_list aktualisiert auch die Loop-Einstellungen)
             self.workflow_tab.refresh_workflow_list()
 
             # Status aktualisieren

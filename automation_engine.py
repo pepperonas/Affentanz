@@ -84,6 +84,11 @@ class AutomationEngine:
         data = {
             "version": "1.0",
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "settings": {
+                "loop_enabled": self.loop_enabled,
+                "loop_pause": self.loop_pause,
+                "abort_key": self.abort_key
+            },
             "actions": [action.to_dict() for action in self.workflow]
         }
 
@@ -100,6 +105,14 @@ class AutomationEngine:
         with open(filename, 'r') as f:
             data = json.load(f)
 
+        # Lade Workflow-Einstellungen, falls vorhanden
+        if "settings" in data:
+            settings = data["settings"]
+            self.loop_enabled = settings.get("loop_enabled", False)
+            self.loop_pause = settings.get("loop_pause", 1.0)
+            self.abort_key = settings.get("abort_key", "esc")
+
+        # Lade Aktionen
         self.workflow = [Action.from_dict(action_data) for action_data in data["actions"]]
         return len(self.workflow)
 
