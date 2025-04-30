@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                            QLabel, QSpinBox, QDoubleSpinBox, QLineEdit,
                            QComboBox, QPushButton, QDialog, QDialogButtonBox,
                            QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QKeySequence, QShortcut
 
 from models import Action, ActionType
 from utils import validate_color, validate_region
@@ -43,6 +44,12 @@ class ActionEditor(QWidget):
         # Platzhaltertext, wenn keine Aktion ausgewählt ist
         self.placeholder = QLabel("Wähle eine Aktion aus, um Details anzuzeigen")
         self.main_layout.addWidget(self.placeholder)
+
+        # Timer und Status für Mausposition-Tracking
+        self.tracking_timer = None
+        self.tracking_active = False
+        self.tracking_target_widget = None
+        self.position_display_label = None
 
         # Anfangs kein Action-Editor anzeigen
         self.clear_editor()
@@ -88,6 +95,11 @@ class ActionEditor(QWidget):
         # Streckbaren Platz einfügen
         self.main_layout.addStretch()
 
+        # Tastaturkürzel für Enter bei aktivem Tracking einrichten
+        self.enter_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Return), self)
+        self.enter_shortcut.activated.connect(self.apply_tracked_position)
+        self.enter_shortcut.setEnabled(False)
+
     def clear_editor(self):
         """Leert den Editor und zeigt den Platzhaltertext an"""
         # Bestehende Widgets entfernen
@@ -106,6 +118,9 @@ class ActionEditor(QWidget):
 
         # Edit-Modus zurücksetzen
         self.edit_mode = False
+
+        # Tracking beenden, falls aktiv
+        self.stop_position_tracking()
 
         # Neues Platzhalter-Label erstellen und anzeigen
         self.placeholder = QLabel("Wähle eine Aktion aus, um Details anzuzeigen")
@@ -138,6 +153,19 @@ class ActionEditor(QWidget):
             y_spinbox.setValue(action.params.get("y", 0))
             self.form_layout.addWidget(y_spinbox, row, 1)
             self.parameter_widgets["y"] = y_spinbox
+            row += 1
+
+            # Mausposition-Display für Live-Tracking
+            self.position_display_label = QLabel("Aktuelle Mausposition: ---, ---")
+            self.form_layout.addWidget(self.position_display_label, row, 0, 1, 2)
+            row += 1
+
+            # Position loggen Button
+            track_position_btn = QPushButton("Mausposition loggen (Enter = übernehmen)")
+            track_position_btn.clicked.connect(
+                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox)
+            )
+            self.form_layout.addWidget(track_position_btn, row, 0, 1, 2)
             row += 1
 
             # Test-Button für Mausposition
@@ -188,6 +216,19 @@ class ActionEditor(QWidget):
             self.parameter_widgets["start_y"] = start_y_spinbox
             row += 1
 
+            # Mausposition-Display für Live-Tracking
+            self.position_display_label = QLabel("Aktuelle Mausposition: ---, ---")
+            self.form_layout.addWidget(self.position_display_label, row, 0, 1, 2)
+            row += 1
+
+            # Start-Position loggen Button
+            track_start_position_btn = QPushButton("Start-Position loggen (Enter = übernehmen)")
+            track_start_position_btn.clicked.connect(
+                lambda: self.toggle_position_tracking(start_x_spinbox, start_y_spinbox)
+            )
+            self.form_layout.addWidget(track_start_position_btn, row, 0, 1, 2)
+            row += 1
+
             # Test-Button für Start-Position
             test_start_btn = QPushButton("Start-Position testen")
             test_start_btn.clicked.connect(
@@ -212,6 +253,14 @@ class ActionEditor(QWidget):
             end_y_spinbox.setValue(action.params.get("end_y", 0))
             self.form_layout.addWidget(end_y_spinbox, row, 1)
             self.parameter_widgets["end_y"] = end_y_spinbox
+            row += 1
+
+            # End-Position loggen Button
+            track_end_position_btn = QPushButton("End-Position loggen (Enter = übernehmen)")
+            track_end_position_btn.clicked.connect(
+                lambda: self.toggle_position_tracking(end_x_spinbox, end_y_spinbox)
+            )
+            self.form_layout.addWidget(track_end_position_btn, row, 0, 1, 2)
             row += 1
 
             # Test-Button für End-Position
@@ -306,6 +355,19 @@ class ActionEditor(QWidget):
             y_spinbox.setValue(action.params.get("y", 0))
             self.form_layout.addWidget(y_spinbox, row, 1)
             self.parameter_widgets["y"] = y_spinbox
+            row += 1
+
+            # Mausposition-Display für Live-Tracking
+            self.position_display_label = QLabel("Aktuelle Mausposition: ---, ---")
+            self.form_layout.addWidget(self.position_display_label, row, 0, 1, 2)
+            row += 1
+
+            # Position loggen Button
+            track_position_btn = QPushButton("Mausposition loggen (Enter = übernehmen)")
+            track_position_btn.clicked.connect(
+                lambda: self.toggle_position_tracking(x_spinbox, y_spinbox)
+            )
+            self.form_layout.addWidget(track_position_btn, row, 0, 1, 2)
             row += 1
 
             # Test-Button für Mausposition
@@ -458,6 +520,109 @@ class ActionEditor(QWidget):
                     self.parameter_changed.emit(
                         ActionParameterChangeEvent(param_name, old_value, new_value)
                     )
+
+    def toggle_position_tracking(self, x_widget, y_widget):
+        """
+        Startet oder stoppt die Verfolgung der Mausposition
+
+        Args:
+            x_widget: Widget für die X-Koordinate
+            y_widget: Widget für die Y-Koordinate
+        """
+        if self.tracking_active:
+            self.stop_position_tracking()
+        else:
+            self.start_position_tracking(x_widget, y_widget)
+
+    def start_position_tracking(self, x_widget, y_widget):
+        """
+        Startet die Verfolgung der Mausposition
+
+        Args:
+            x_widget: Widget für die X-Koordinate
+            y_widget: Widget für die Y-Koordinate
+        """
+        # Tracking beenden, falls bereits aktiv
+        if self.tracking_active:
+            self.stop_position_tracking()
+
+        # Tracking-Status setzen
+        self.tracking_active = True
+        self.tracking_target_widget = (x_widget, y_widget)
+
+        # Shortcut aktivieren
+        if hasattr(self, 'enter_shortcut'):
+            self.enter_shortcut.setEnabled(True)
+
+        # Timer für Mausverfolgung starten
+        self.tracking_timer = QTimer()
+        self.tracking_timer.timeout.connect(self.update_mouse_position)
+        self.tracking_timer.start(50)  # Alle 50 ms aktualisieren
+
+        # Status-Label aktualisieren
+        if self.position_display_label:
+            self.position_display_label.setStyleSheet("color: #4CAF50; font-weight: bold;")  # Grün
+
+    def stop_position_tracking(self):
+        """Beendet die Verfolgung der Mausposition"""
+        if not self.tracking_active:
+            return
+
+        # Timer stoppen
+        if self.tracking_timer:
+            self.tracking_timer.stop()
+            self.tracking_timer = None
+
+        # Tracking-Status zurücksetzen
+        self.tracking_active = False
+        self.tracking_target_widget = None
+
+        # Shortcut deaktivieren
+        if hasattr(self, 'enter_shortcut'):
+            self.enter_shortcut.setEnabled(False)
+
+        # Status-Label zurücksetzen
+        if self.position_display_label:
+            self.position_display_label.setStyleSheet("")
+
+    def update_mouse_position(self):
+        """Aktualisiert das Label mit der aktuellen Mausposition"""
+        if not self.tracking_active or not self.position_display_label:
+            return
+
+        # Aktuelle Mausposition abrufen
+        pos = pyautogui.position()
+
+        # Display aktualisieren
+        self.position_display_label.setText(f"Aktuelle Mausposition: {pos[0]}, {pos[1]}")
+
+    def apply_tracked_position(self):
+        """Übernimmt die aktuelle Mausposition in die Zielfelder"""
+        if not self.tracking_active or not self.tracking_target_widget:
+            return
+
+        # Aktuelle Mausposition abrufen
+        pos = pyautogui.position()
+
+        # Werte in die Felder eintragen
+        x_widget, y_widget = self.tracking_target_widget
+        x_widget.setValue(pos[0])
+        y_widget.setValue(pos[1])
+
+        # Tracking beenden
+        self.stop_position_tracking()
+
+        # Bestätigungsnachricht anzeigen
+        if self.position_display_label:
+            self.position_display_label.setText(f"Position übernommen: {pos[0]}, {pos[1]}")
+
+    def keyPressEvent(self, event):
+        """Behandelt Tastatureingaben"""
+        # Enter-Taste abfangen, wenn Tracking aktiv
+        if self.tracking_active and event.key() == Qt.Key.Key_Return:
+            self.apply_tracked_position()
+        else:
+            super().keyPressEvent(event)
 
     def _test_mouse_position(self, x: int, y: int):
         """
