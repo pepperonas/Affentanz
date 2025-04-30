@@ -250,6 +250,25 @@ class ActionEditor(QWidget):
             self.parameter_widgets["key"] = key_edit
             row += 1
 
+        elif action.action_type == ActionType.TEXT_WRITE:
+            # Text
+            self.form_layout.addWidget(QLabel("Text:"), row, 0)
+            text_edit = QLineEdit(action.params.get("text", "Beispieltext"))
+            self.form_layout.addWidget(text_edit, row, 1)
+            self.parameter_widgets["text"] = text_edit
+            row += 1
+
+            # Verzögerung zwischen Tastendrücken
+            self.form_layout.addWidget(QLabel("Verzögerung (s):"), row, 0)
+            interval_spinbox = QDoubleSpinBox()
+            interval_spinbox.setRange(0, 1)
+            interval_spinbox.setSingleStep(0.01)
+            interval_spinbox.setDecimals(2)
+            interval_spinbox.setValue(action.params.get("interval", 0))
+            self.form_layout.addWidget(interval_spinbox, row, 1)
+            self.parameter_widgets["interval"] = interval_spinbox
+            row += 1
+
         elif action.action_type == ActionType.KEY_COMBO:
             # Tasten (als kommaseparierte Liste)
             self.form_layout.addWidget(QLabel("Tasten (mit Komma getrennt):"), row, 0)

@@ -16,6 +16,7 @@ class ActionType(Enum):
     MOUSE_DRAG = "Maus ziehen"
     KEY_PRESS = "Taste drücken"
     KEY_COMBO = "Tastenkombination"
+    TEXT_WRITE = "Text schreiben"
     WAIT = "Warten"
     WAIT_FOR_COLOR = "Auf Farbe warten"
     WAIT_FOR_TEXT = "Auf Text warten"
@@ -59,6 +60,8 @@ class Action:
             return {"key": "enter"}
         elif action_type == ActionType.KEY_COMBO:
             return {"keys": ["ctrl", "c"]}
+        elif action_type == ActionType.TEXT_WRITE:
+            return {"text": "Beispieltext", "interval": 0.0}
         elif action_type == ActionType.WAIT:
             return {"seconds": 1}
         elif action_type == ActionType.WAIT_FOR_COLOR:
@@ -84,6 +87,8 @@ class Action:
             description += f" {self.params['key']}"
         elif self.action_type == ActionType.KEY_COMBO:
             description += f" {'+'.join(self.params['keys'])}"
+        elif self.action_type == ActionType.TEXT_WRITE:
+            description += f" '{self.params['text']}'"
         elif self.action_type == ActionType.WAIT:
             description += f" {self.params['seconds']}s"
         elif self.action_type == ActionType.WAIT_FOR_COLOR:
