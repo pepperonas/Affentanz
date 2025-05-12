@@ -32,8 +32,10 @@ STATUSBAR_TIMEOUT = 3000  # ms
 DEFAULT_BETWEEN_ACTIONS_DELAY = 100  # ms
 
 # Dateipfade
-SETTINGS_FILE = "settings.json"
-WORKFLOWS_DIR = "workflows"
+HOME_DIR = ""  # Wird zur Laufzeit gesetzt
+CONFIG_DIR = ".affentanz-configs"  # Versteckter Konfigurationsordner im Home-Verzeichnis
+SETTINGS_FILE = ""  # Wird zur Laufzeit gesetzt
+WORKFLOWS_DIR = ""  # Wird zur Laufzeit gesetzt
 
 # Tastaturkürzel
 SHORTCUT_NEW = "Ctrl+N"

@@ -13,6 +13,8 @@ from PyQt6.QtCore import Qt, QRect, QPoint, QTimer
 from PyQt6.QtGui import QPainter, QPen, QColor, QPixmap, QImage, QFont
 from PIL import ImageGrab
 
+# Importiere Konstanten
+import constants
 from constants import *
 
 
@@ -361,13 +363,39 @@ def validate_region(region_str: str) -> Tuple[bool, Optional[List[int]]]:
     return False, None
 
 
+def init_config_directories():
+    """
+    Initialisiert die Verzeichnisstruktur für die Konfigurationsdateien
+    """
+    # Setze das Home-Verzeichnis
+    constants.HOME_DIR = os.path.expanduser("~")
+    config_dir = os.path.join(constants.HOME_DIR, constants.CONFIG_DIR)
+    workflows_dir = os.path.join(config_dir, "workflows")
+
+    # Setze die Pfade für Einstellungen und Workflows global
+    constants.SETTINGS_FILE = os.path.join(config_dir, "settings.json")
+    constants.WORKFLOWS_DIR = workflows_dir
+
+    # Erstelle die Verzeichnisse, falls sie nicht existieren
+    os.makedirs(config_dir, exist_ok=True)
+    os.makedirs(workflows_dir, exist_ok=True)
+
+    # Aktualisiere auch die lokalen Module-Variablen
+    global SETTINGS_FILE, WORKFLOWS_DIR
+    SETTINGS_FILE = constants.SETTINGS_FILE
+    WORKFLOWS_DIR = constants.WORKFLOWS_DIR
+
+
 def load_settings() -> Dict[str, Any]:
     """
     Lädt die Einstellungen aus der Einstellungsdatei
-    
+
     Returns:
         Dict[str, Any]: Einstellungen
     """
+    # Stelle sicher, dass die Konfigurationsverzeichnisse existieren
+    init_config_directories()
+
     default_settings = {
         "tesseract_path": get_default_tesseract_path(),
         "failsafe": True,
@@ -375,19 +403,19 @@ def load_settings() -> Dict[str, Any]:
         "recent_workflows": [],
         "recent_directories": []
     }
-    
+
     if not os.path.exists(SETTINGS_FILE):
         return default_settings
-        
+
     try:
         with open(SETTINGS_FILE, 'r') as f:
             settings = json.load(f)
-        
+
         # Stelle sicher, dass alle erforderlichen Einstellungen vorhanden sind
         for key, value in default_settings.items():
             if key not in settings:
                 settings[key] = value
-                
+
         return settings
     except:
         return default_settings
@@ -396,14 +424,14 @@ def load_settings() -> Dict[str, Any]:
 def save_settings(settings: Dict[str, Any]):
     """
     Speichert die Einstellungen in der Einstellungsdatei
-    
+
     Args:
         settings: Einstellungen
     """
     try:
         # Stelle sicher, dass das Verzeichnis existiert
-        os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
-        
+        init_config_directories()
+
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f, indent=4)
     except Exception as e:
@@ -413,22 +441,98 @@ def save_settings(settings: Dict[str, Any]):
 def add_recent_workflow(filename: str, max_entries: int = 10):
     """
     Fügt einen Workflow zur Liste der zuletzt verwendeten Workflows hinzu
-    
+
     Args:
         filename: Pfad zur Workflow-Datei
         max_entries: Maximale Anzahl der Einträge in der Liste
     """
     settings = load_settings()
     recent = settings.get("recent_workflows", [])
-    
+
     # Entferne den Eintrag, falls er bereits vorhanden ist
     if filename in recent:
         recent.remove(filename)
-    
+
     # Füge den Eintrag am Anfang der Liste hinzu
     recent.insert(0, filename)
-    
+
     # Begrenze die Anzahl der Einträge
     settings["recent_workflows"] = recent[:max_entries]
-    
+
+    # Merke auch das Verzeichnis für den nächsten Dialog
+    directory = os.path.dirname(filename)
+    if directory:
+        update_last_directory("workflow", directory)
+
     save_settings(settings)
+
+
+def update_last_directory(dialog_type: str, directory: str):
+    """
+    Speichert das zuletzt verwendete Verzeichnis für einen bestimmten Dialog-Typ
+
+    Args:
+        dialog_type: Typ des Dialogs (z.B. "workflow", "export", ...)
+        directory: Zuletzt verwendetes Verzeichnis
+    """
+    settings = load_settings()
+    last_directories = settings.get("last_directories", {})
+
+    last_directories[dialog_type] = directory
+    settings["last_directories"] = last_directories
+
+    save_settings(settings)
+
+
+def get_last_directory(dialog_type: str, default_dir: str = None) -> str:
+    """
+    Gibt das zuletzt verwendete Verzeichnis für einen bestimmten Dialog-Typ zurück
+
+    Args:
+        dialog_type: Typ des Dialogs (z.B. "workflow", "export", ...)
+        default_dir: Standardverzeichnis, falls kein letztes Verzeichnis gefunden wird
+
+    Returns:
+        str: Zuletzt verwendetes Verzeichnis oder default_dir
+    """
+    settings = load_settings()
+    last_directories = settings.get("last_directories", {})
+
+    # Prüfe, ob das Verzeichnis existiert, sonst verwende default_dir
+    directory = last_directories.get(dialog_type, default_dir)
+    if directory and os.path.exists(directory):
+        return directory
+    return default_dir
+
+
+def get_workflow_path(workflow_name: str) -> str:
+    """
+    Gibt den vollständigen Pfad zu einer Workflow-Datei zurück
+
+    Args:
+        workflow_name: Name des Workflows (mit oder ohne .json Endung)
+
+    Returns:
+        str: Vollständiger Pfad zur Workflow-Datei
+    """
+    # Stelle sicher, dass die Konfigurationsverzeichnisse existieren
+    init_config_directories()
+
+    # Stelle sicher, dass der Dateiname die Endung .json hat
+    if not workflow_name.lower().endswith('.json'):
+        workflow_name += '.json'
+
+    return os.path.join(WORKFLOWS_DIR, workflow_name)
+
+
+def get_workflows_directory() -> str:
+    """
+    Gibt den vollständigen Pfad zum Workflows-Verzeichnis zurück
+
+    Returns:
+        str: Vollständiger Pfad zum Workflows-Verzeichnis
+    """
+    # Stelle sicher, dass die Konfigurationsverzeichnisse existieren
+    init_config_directories()
+
+    return WORKFLOWS_DIR
