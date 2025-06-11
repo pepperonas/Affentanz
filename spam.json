@@ -1,0 +1,42 @@
+{
+    "version": "1.0",
+    "created_at": "2025-04-30 19:05:29",
+    "settings": {
+        "loop_enabled": true,
+        "loop_pause": 3.0,
+        "abort_key": "esc"
+    },
+    "actions": [
+        {
+            "type": "Mausbewegung",
+            "params": {
+                "x": 1328,
+                "y": 834,
+                "duration": 0.1,
+                "screen_id": 1
+            }
+        },
+        {
+            "type": "Mausklick",
+            "params": {
+                "x": 1328,
+                "y": 834,
+                "duration": 0.1,
+                "screen_id": 1
+            }
+        },
+        {
+            "type": "Text schreiben",
+            "params": {
+                "text": "Hallo!!",
+                "interval": 0.0
+            }
+        },
+        {
+            "type": "Taste dr\u00fccken",
+            "params": {
+                "key": "enter"
+            }
+        }
+    ]
+}
